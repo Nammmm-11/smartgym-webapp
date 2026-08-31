@@ -13,6 +13,10 @@ export interface Member {
   packageName: string;   
   packageDiscount: string;   
   assignedStaff: string;   
+  assignedStaffId?: string;
+  startDate?: string;
+  createdAt?: string;
+  lastCheckInDate?: string;
   expiryDate: string;   
   status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED';   
   isDeleted?: boolean;
@@ -24,5 +28,7 @@ export interface MemberMetrics {
   total: number;   
   active: number;   
   expired: number;   
+  expiring?: number;
+  newInvoices?: number;
   checkInToday: number; 
 }

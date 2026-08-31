@@ -191,10 +191,11 @@ export const memberApi = {
     }
   },
 
-  // 6. TÍNH TOÁN METRICS (Logic tính toán thông số)
+  // 6. TÍNH TOÁN METRICS (Logic tính toán thông số thật từ CSDL)
   calculateMetrics: (members: Member[]): MemberMetrics => {
     const activeMembers = members.filter((m) => !m.isDeleted && m.status === 'ACTIVE');
     const today = new Date(); 
+    today.setHours(0, 0, 0, 0);
 
     let expiredCount = 0;
     let expiringCount = 0;
@@ -203,32 +204,45 @@ export const memberApi = {
     members.forEach((m) => {
       if (m.isDeleted) return;
 
-      if (m.status === 'EXPIRED') {
-        expiredCount++;
-        return;
-      }
-
-      const parts = m.expiryDate && m.expiryDate.includes('/') ? m.expiryDate.split('/') : [];
-      let expiryDate: Date;
-      if (parts.length === 3) {
-        expiryDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      } else {
-        expiryDate = new Date(m.expiryDate);
-      }
-
-      if (!isNaN(expiryDate.getTime())) {
-        const diffTime = expiryDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays < 0) {
-          expiredCount++;
-        } else if (diffDays >= 0 && diffDays <= 7) {
-          expiringCount++;
+      // 1. Kiểm tra ngày hết hạn
+      if (m.expiryDate) {
+        let expiryDate: Date | null = null;
+        if (typeof m.expiryDate === 'string' && m.expiryDate.includes('/')) {
+          const parts = m.expiryDate.split('/');
+          if (parts.length === 3) {
+            expiryDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          }
+        } else {
+          expiryDate = new Date(m.expiryDate);
         }
+
+        if (expiryDate && !isNaN(expiryDate.getTime())) {
+          expiryDate.setHours(0, 0, 0, 0);
+          const diffTime = expiryDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays < 0 || m.status === 'EXPIRED') {
+            expiredCount++;
+          } else if (diffDays >= 0 && diffDays <= 7) {
+            expiringCount++;
+          }
+        } else if (m.status === 'EXPIRED') {
+          expiredCount++;
+        }
+      } else if (m.status === 'EXPIRED') {
+        expiredCount++;
       }
 
-      if (m.packageName && (m.packageName.toLowerCase().includes('tháng') || m.memberCode === '#4')) {
-        newCount++;
+      // 2. Kiểm tra hóa đơn mới (đăng ký trong vòng 30 ngày gần đây)
+      const regDateStr = m.startDate || m.createdAt;
+      if (regDateStr) {
+        const regDate = new Date(regDateStr);
+        if (!isNaN(regDate.getTime())) {
+          const diffDays = (today.getTime() - regDate.getTime()) / (1000 * 60 * 60 * 24);
+          if (diffDays >= 0 && diffDays <= 30) {
+            newCount++;
+          }
+        }
       }
     });
 

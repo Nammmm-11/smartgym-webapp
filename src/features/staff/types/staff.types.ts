@@ -19,6 +19,7 @@ export interface StaffMember {
   ptRevenue?: number;
   commission?: number;
   isDeleted?: boolean; // Quản lý xóa mềm
+  userId?: string;
 }
 
 export interface StaffMetrics {

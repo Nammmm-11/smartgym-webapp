@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FiX, FiDollarSign, FiTrendingUp, FiUserCheck, FiCalendar, FiPackage, FiAward } from 'react-icons/fi';
 import type { StaffMember } from '../types/staff.types';
+import { memberApi } from '../../members/api/member.api';
+import type { Member } from '../../members/types/member.types';
+import { gymPackageService, type GymPackageDto } from '../../gymPackages/services/gymPackage.service';
 
 export interface MemberRegistrationRecord {
   id: string;
@@ -22,34 +25,88 @@ export const SalaryDetailModal: React.FC<SalaryDetailModalProps> = ({
   staff,
   onClose
 }) => {
-  if (!isOpen || !staff) return null;
+  const [realMembers, setRealMembers] = useState<Member[]>([]);
+  const [packages, setPackages] = useState<GymPackageDto[]>([]);
 
-  // Lấy lịch sử hội viên đã đăng ký qua nhân viên này từ localStorage
-  const getStaffRegistrations = (): MemberRegistrationRecord[] => {
+  useEffect(() => {
+    if (isOpen && staff) {
+      memberApi.getMembers().then((members) => {
+        setRealMembers(members || []);
+      }).catch((e) => console.error(e));
+
+      gymPackageService.getAll().then((res) => {
+        if (res?.data?.items) {
+          setPackages(res.data.items);
+        }
+      }).catch((e) => console.error(e));
+    }
+  }, [isOpen, staff]);
+
+  const registrations: MemberRegistrationRecord[] = useMemo(() => {
+    if (!staff) return [];
+
+    // 1. Khớp từ danh sách hội viên thực tế trong Database
+    const matchedMembers = realMembers.filter((m) => {
+      if (m.isDeleted) return false;
+      if (m.assignedStaffId && (m.assignedStaffId === staff.id || (staff.userId && m.assignedStaffId === staff.userId))) return true;
+      if (m.assignedStaff && m.assignedStaff.trim().toLowerCase() === staff.fullName.trim().toLowerCase()) return true;
+      return false;
+    });
+
+    if (matchedMembers.length > 0) {
+      return matchedMembers.map((m) => {
+        let amount = 0;
+        if (m.packageDiscount) {
+          const parsed = parseInt(m.packageDiscount.replace(/\D/g, ''), 10);
+          if (!isNaN(parsed) && parsed > 0) amount = parsed;
+        }
+        
+        if (amount === 0) {
+          const matchedPkg = packages.find(p => p.name?.trim().toLowerCase() === m.packageName?.trim().toLowerCase());
+          if (matchedPkg && matchedPkg.price > 0) {
+            amount = matchedPkg.price;
+          } else if (m.packageName?.toLowerCase().includes('3 tháng')) {
+            amount = 900000;
+          } else {
+            amount = 300000;
+          }
+        }
+
+        return {
+          id: m.id,
+          memberFullName: m.fullName,
+          memberPhone: m.phoneNumber,
+          packageName: m.packageName || 'Gói tập',
+          amount: amount,
+          date: m.startDate ? new Date(m.startDate).toLocaleDateString('vi-VN') : (m.createdAt ? new Date(m.createdAt).toLocaleDateString('vi-VN') : '31/8/2026')
+        };
+      });
+    }
+
+    // 2. Kiểm tra localStorage và chỉ giữ các hội viên thực sự có trong Database
     try {
       const stored = localStorage.getItem(`smartgym_staff_sales_${staff.id}`);
       if (stored) {
-        return JSON.parse(stored);
+        const localList: MemberRegistrationRecord[] = JSON.parse(stored);
+        return localList.filter(l => realMembers.some(rm => !rm.isDeleted && (rm.fullName.toLowerCase() === l.memberFullName.toLowerCase() || rm.phoneNumber === l.memberPhone)));
       }
     } catch (e) {
       console.error(e);
     }
     return [];
-  };
+  }, [realMembers, packages, staff]);
 
-  const registrations = getStaffRegistrations();
+  if (!isOpen || !staff) return null;
   
-  // Tính tổng doanh thu tích lũy từ danh sách hội viên đăng ký qua nhân viên này
-  const accumulatedRevenueFromSales = registrations.reduce((acc, r) => acc + r.amount, 0);
+  // 1. Tính tổng doanh thu tích lũy thật từ danh sách hội viên do nhân viên phụ trách
+  const totalRevenue = registrations.reduce((acc, r) => acc + r.amount, 0);
   
-  // Sử dụng doanh thu tích lũy thực tế hoặc ptRevenue hiện tại
-  const totalRevenue = Math.max(staff.ptRevenue || 0, accumulatedRevenueFromSales);
+  // 2. Tỷ lệ hoa hồng 10% cho mỗi hội viên
+  const commissionRate = 0.10;
+  const commissionAmount = Math.round(totalRevenue * commissionRate);
   
-  // Tính hoa hồng (10% doanh thu tích lũy nếu là Lễ tân/PT)
-  const estimatedCommission = Math.round(totalRevenue * 0.10);
-  
-  // Tổng thu nhập thực nhận = Lương cứng + Doanh thu/Hoa hồng
-  const totalIncome = staff.salary + (staff.role === 'TRAINER' ? totalRevenue : estimatedCommission);
+  // 3. Tổng lương thực nhận = Lương cứng + Tiền hoa hồng 10%
+  const totalIncome = staff.salary + commissionAmount;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
@@ -97,19 +154,21 @@ export const SalaryDetailModal: React.FC<SalaryDetailModalProps> = ({
             <span className="text-[10px] text-gray-500 font-mono italic mt-1">Cố định hàng tháng</span>
           </div>
 
-          {/* Doanh thu tích lũy */}
+          {/* Doanh thu tích lũy từ hội viên */}
           <div className="bg-[#0f0f14] border border-[#22222d] rounded-2xl p-4 flex flex-col justify-between">
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">DOANH THU TÍCH LŨY</span>
+              <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">DOANH THU TÍCH LŨY TỪ HỘI VIÊN</span>
               <FiTrendingUp size={16} className="text-gym-neon" />
             </div>
             <p className="text-xl font-black text-gym-neon font-mono m-0 mt-2">
               {totalRevenue.toLocaleString('vi-VN')} đ
             </p>
-            <span className="text-[10px] text-gym-neon/80 font-mono italic mt-1">Từ {registrations.length} lượt đăng ký</span>
+            <span className="text-[10px] text-gym-neon/80 font-mono italic mt-1">
+              Từ {registrations.length} lượt đăng ký hội viên
+            </span>
           </div>
 
-          {/* Tổng thu nhập ước tính */}
+          {/* Tổng thu nhập thực nhận */}
           <div className="bg-[#0f0f14] border border-[#22222d] rounded-2xl p-4 flex flex-col justify-between">
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">TỔNG LƯƠNG NHẬN</span>
@@ -118,7 +177,7 @@ export const SalaryDetailModal: React.FC<SalaryDetailModalProps> = ({
             <p className="text-xl font-black text-teal-400 font-mono m-0 mt-2">
               {totalIncome.toLocaleString('vi-VN')} đ
             </p>
-            <span className="text-[10px] text-gray-500 font-mono italic mt-1">Gồm lương + thưởng/doanh thu</span>
+            <span className="text-[10px] text-gray-500 font-mono italic mt-1">Lương cứng + 10% doanh thu tích lũy</span>
           </div>
         </div>
 
@@ -126,7 +185,7 @@ export const SalaryDetailModal: React.FC<SalaryDetailModalProps> = ({
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-mono uppercase tracking-widest text-gray-300 m-0 flex items-center gap-2">
-              <FiUserCheck className="text-gym-neon" /> LỊCH SỬ ĐĂNG KÝ HỘI VIÊN TÍCH LŨY DOANH THU ({registrations.length})
+              <FiUserCheck className="text-gym-neon" /> DANH SÁCH HỘI VIÊN PHỤ TRÁCH & DOANH THU ({registrations.length})
             </h4>
           </div>
 
@@ -137,32 +196,35 @@ export const SalaryDetailModal: React.FC<SalaryDetailModalProps> = ({
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {registrations.map((reg, index) => (
-                  <div
-                    key={reg.id || index}
-                    className="bg-[#0d0d12] border border-[#181822] hover:border-gym-neon/30 rounded-xl p-3 flex items-center justify-between transition-colors text-xs font-mono"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-lg bg-gym-neon/10 text-gym-neon font-black flex items-center justify-center text-xs">
-                        #{index + 1}
+                {registrations.map((reg, index) => {
+                  const itemCommission = Math.round(reg.amount * commissionRate);
+                  return (
+                    <div
+                      key={reg.id || index}
+                      className="bg-[#0d0d12] border border-[#181822] hover:border-gym-neon/30 rounded-xl p-3 flex items-center justify-between transition-colors text-xs font-mono"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-gym-neon/10 text-gym-neon font-black flex items-center justify-center text-xs">
+                          #{index + 1}
+                        </div>
+                        <div>
+                          <p className="font-bold text-white uppercase m-0">{reg.memberFullName}</p>
+                          <p className="text-[10px] text-gray-500 m-0 flex items-center gap-2">
+                            <span>SĐT: {reg.memberPhone}</span>
+                            <span className="flex items-center gap-1"><FiCalendar size={10} /> {reg.date}</span>
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-white uppercase m-0">{reg.memberFullName}</p>
-                        <p className="text-[10px] text-gray-500 m-0 flex items-center gap-2">
-                          <span>SĐT: {reg.memberPhone}</span>
-                          <span className="flex items-center gap-1"><FiCalendar size={10} /> {reg.date}</span>
+
+                      <div className="text-right">
+                        <p className="text-gym-neon font-black m-0">+{reg.amount.toLocaleString('vi-VN')} đ</p>
+                        <p className="text-[10px] text-gray-400 uppercase italic m-0 flex items-center gap-1 justify-end">
+                          <FiPackage size={10} /> {reg.packageName} &nbsp;•&nbsp; <span className="text-gym-neon font-bold tracking-wide">HH (10%): +{itemCommission.toLocaleString('vi-VN')} đ</span>
                         </p>
                       </div>
                     </div>
-
-                    <div className="text-right">
-                      <p className="text-gym-neon font-black m-0">+{reg.amount.toLocaleString('vi-VN')} đ</p>
-                      <p className="text-[10px] text-gray-400 uppercase italic m-0 flex items-center gap-1 justify-end">
-                        <FiPackage size={10} /> {reg.packageName}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

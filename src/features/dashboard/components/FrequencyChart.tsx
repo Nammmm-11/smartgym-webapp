@@ -1,23 +1,79 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { FiActivity } from 'react-icons/fi';
+import type { AttendanceRecord } from './AttendanceList';
 
 interface HourlyData {
   time: string;
   count: number;
 }
 
-export const FrequencyChart: React.FC = () => {
-  const chartData: HourlyData[] = [
-    { time: '06:00', count: 0 },
-    { time: '08:00', count: 0 },
-    { time: '10:00', count: 0 },
-    { time: '12:00', count: 0 },
-    { time: '14:00', count: 0 },
-    { time: '16:00', count: 2 },
-    { time: '18:00', count: 2 },
-    { time: '20:00', count: 1 },
-    { time: '22:00', count: 0 },
-  ];
+interface FrequencyChartProps {
+  records?: AttendanceRecord[];
+}
+
+export const FrequencyChart: React.FC<FrequencyChartProps> = ({ records = [] }) => {
+  const chartData: HourlyData[] = useMemo(() => {
+    const slots = [
+      { time: '06:00', startH: 6, endH: 7, count: 0 },
+      { time: '08:00', startH: 8, endH: 9, count: 0 },
+      { time: '10:00', startH: 10, endH: 11, count: 0 },
+      { time: '12:00', startH: 12, endH: 13, count: 0 },
+      { time: '14:00', startH: 14, endH: 15, count: 0 },
+      { time: '16:00', startH: 16, endH: 17, count: 0 },
+      { time: '18:00', startH: 18, endH: 19, count: 0 },
+      { time: '20:00', startH: 20, endH: 21, count: 0 },
+      { time: '22:00', startH: 22, endH: 23, count: 0 },
+    ];
+
+    records.forEach((record) => {
+      if (!record.time) return;
+      // Ví dụ record.time = "18:30:15" hoặc "18:30"
+      const timeClean = record.time.includes(' ') ? record.time.split(' ')[0] : record.time;
+      const hourPart = parseInt(timeClean.split(':')[0], 10);
+      if (!isNaN(hourPart)) {
+        const slot = slots.find((s) => hourPart >= s.startH && hourPart <= s.endH);
+        if (slot) {
+          slot.count += 1;
+        }
+      }
+    });
+
+    return slots.map((s) => ({ time: s.time, count: s.count }));
+  }, [records]);
+
+  const maxCount = useMemo(() => {
+    const max = Math.max(...chartData.map((d) => d.count), 0);
+    return max > 0 ? Math.max(max, 2) : 2;
+  }, [chartData]);
+
+  // Sinh đường dẫn SVG động chuẩn xác theo dữ liệu thật
+  const svgPaths = useMemo(() => {
+    const totalPoints = chartData.length;
+    if (totalPoints === 0) return { areaPath: '', linePath: '' };
+
+    const points = chartData.map((item, index) => {
+      const x = (index / (totalPoints - 1)) * 100;
+      // y = 100 (đáy) khi count = 0, y = 10 khi count = maxCount
+      const y = maxCount > 0 && item.count > 0 
+        ? Math.max(10, 100 - (item.count / maxCount) * 85)
+        : 100;
+      return { x, y };
+    });
+
+    let linePath = `M ${points[0].x},${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const curr = points[i];
+      const next = points[i + 1];
+      const cp1x = curr.x + (next.x - curr.x) / 2;
+      const cp1y = curr.y;
+      const cp2x = curr.x + (next.x - curr.x) / 2;
+      const cp2y = next.y;
+      linePath += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${next.x},${next.y}`;
+    }
+
+    const areaPath = `${linePath} L 100,100 L 0,100 Z`;
+    return { areaPath, linePath };
+  }, [chartData, maxCount]);
 
   const [hoverInfo, setHoverInfo] = useState<{ xPx: number; data: HourlyData } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,20 +81,17 @@ export const FrequencyChart: React.FC = () => {
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const paddingLeft = 32; // Khớp với khoảng cách pl-8 (32px) của trục Y
+    const paddingLeft = 32;
     const paddingRight = 16;
     const chartWidth = rect.width - paddingLeft - paddingRight;
 
-    // Tính vị trí X của chuột bên trong vùng vẽ biểu đồ
     let mouseX = e.clientX - rect.left - paddingLeft;
     if (mouseX < 0) mouseX = 0;
     if (mouseX > chartWidth) mouseX = chartWidth;
 
-    // Tìm index mốc giờ gần nhất dựa trên vị trí chuột cực kỳ mượt mà
     const index = Math.round((mouseX / chartWidth) * (chartData.length - 1));
     const clampedIndex = Math.max(0, Math.min(index, chartData.length - 1));
 
-    // Tính toán tọa độ pixel chính xác cho mốc giờ đó
     const exactXPx = paddingLeft + (clampedIndex / (chartData.length - 1)) * chartWidth;
 
     setHoverInfo({
@@ -80,10 +133,10 @@ export const FrequencyChart: React.FC = () => {
       >
         {/* Trục Y */}
         <div className="absolute left-[-20px] top-0 bottom-6 flex flex-col justify-between text-[9px] font-mono text-gray-600 h-full py-2">
-          <span>2</span>
-          <span>1.5</span>
-          <span>1</span>
-          <span>0.5</span>
+          <span>{maxCount}</span>
+          <span>{(maxCount * 0.75).toFixed(1)}</span>
+          <span>{(maxCount * 0.5).toFixed(1)}</span>
+          <span>{(maxCount * 0.25).toFixed(1)}</span>
           <span>0</span>
         </div>
         
@@ -100,7 +153,7 @@ export const FrequencyChart: React.FC = () => {
           <span>22:00</span>
         </div>
 
-        {/* Đường chỉ dọc bám theo chuột cực mượt */}
+        {/* Đường chỉ dọc bám theo chuột */}
         {hoverInfo && (
           <div 
             className="absolute top-0 bottom-6 w-[1px] bg-white/80 z-20 pointer-events-none transition-all duration-75 ease-out"
@@ -132,8 +185,12 @@ export const FrequencyChart: React.FC = () => {
                 <stop offset="100%" stopColor="#ccff00" stopOpacity="0" />
               </linearGradient>
             </defs>
-            <path d="M0,100 C30,100 45,100 50,100 C60,100 65,0 75,0 C85,0 90,50 100,100 L100,100 L0,100 Z" fill="url(#neonGradient)" />
-            <path d="M0,100 C30,100 45,100 50,100 C60,100 65,0 75,0 C85,0 90,50 100,100" fill="none" stroke="#ccff00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            {svgPaths.areaPath && (
+              <path d={svgPaths.areaPath} fill="url(#neonGradient)" />
+            )}
+            {svgPaths.linePath && (
+              <path d={svgPaths.linePath} fill="none" stroke="#ccff00" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            )}
           </svg>
         </div>
       </div>

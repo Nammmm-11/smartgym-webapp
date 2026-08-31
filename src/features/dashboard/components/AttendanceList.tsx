@@ -35,20 +35,29 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ members = [] }) 
       </div>
 
       <div className="flex-grow overflow-y-auto mt-2 space-y-1 pr-2">
-        {members.map((member, idx) => (
-          <div key={idx} className="grid grid-cols-[40px_60px_2fr_1.5fr_2fr_1.5fr] gap-4 items-center py-2.5 hover:bg-[#121212] rounded-xl transition-colors border-b border-[#141414] last:border-0">
-            <div className="text-[10px] font-mono text-gray-500">{member.no}</div>
-            <div className="flex justify-center">
-              <div className={`w-7 h-7 rounded-lg bg-[#141414] border border-[#222] flex items-center justify-center font-black text-[11px] ${member.color}`}>
-                {member.initial}
-              </div>
-            </div>
-            <div className="text-[11px] font-black italic tracking-wider uppercase text-gray-200 truncate">{member.name}</div>
-            <div className="text-[10px] font-mono text-gray-400">{member.phone}</div>
-            <div className="text-[10px] font-bold text-gray-300 truncate">{member.service}</div>
-            <div className="text-[10px] font-mono text-gray-400 text-right">{member.time}</div>
+        {members.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center text-gray-600">
+            <FiUsers size={32} className="mb-3 opacity-30" />
+            <span className="text-[11px] font-mono tracking-widest uppercase text-gray-500">
+              CHƯA CÓ HỘI VIÊN NÀO CHECK-IN HÔM NAY
+            </span>
           </div>
-        ))}
+        ) : (
+          members.map((member, idx) => (
+            <div key={idx} className="grid grid-cols-[40px_60px_2fr_1.5fr_2fr_1.5fr] gap-4 items-center py-2.5 hover:bg-[#121212] rounded-xl transition-colors border-b border-[#141414] last:border-0">
+              <div className="text-[10px] font-mono text-gray-500">{member.no}</div>
+              <div className="flex justify-center">
+                <div className={`w-7 h-7 rounded-lg bg-[#141414] border border-[#222] flex items-center justify-center font-black text-[11px] ${member.color}`}>
+                  {member.initial}
+                </div>
+              </div>
+              <div className="text-[11px] font-black italic tracking-wider uppercase text-gray-200 truncate">{member.name}</div>
+              <div className="text-[10px] font-mono text-gray-400">{member.phone}</div>
+              <div className="text-[10px] font-bold text-gray-300 truncate">{member.service}</div>
+              <div className="text-[10px] font-mono text-gray-400 text-right">{member.time}</div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

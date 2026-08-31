@@ -39,25 +39,18 @@ export const gymPackageService = {
       if (response.data && response.data.isSuccess) {
         return response.data;
       }
-    } catch {
-      // Backend chưa có controller gym-packages -> trả về danh sách gói tập mặc định
+    } catch (err) {
+      console.error("Lỗi khi tải dữ liệu gói tập từ SQL Server:", err);
     }
-
-    const defaultPackages: GymPackageDto[] = [
-      { id: '12d12de8-2013-4ad8-b829-fecff9faf281', name: 'Gói 1 tháng', description: 'Tập luyện 1 tháng', durationInMonths: 1, price: 300000, isActive: true },
-      { id: '22d12de8-2013-4ad8-b829-fecff9faf282', name: 'Gói 3 tháng', description: 'Tập luyện 3 tháng', durationInMonths: 3, price: 800000, isActive: true },
-      { id: '32d12de8-2013-4ad8-b829-fecff9faf283', name: 'Gói 6 tháng', description: 'Tập luyện 6 tháng', durationInMonths: 6, price: 1500000, isActive: true },
-      { id: '42d12de8-2013-4ad8-b829-fecff9faf284', name: 'Gói 12 tháng', description: 'Tập luyện 12 tháng', durationInMonths: 12, price: 2800000, isActive: true }
-    ];
 
     return {
       isSuccess: true,
       data: {
-        items: defaultPackages,
-        totalCount: defaultPackages.length,
+        items: [],
+        totalCount: 0,
         pageIndex: 1,
         pageSize: 20,
-        totalPages: 1,
+        totalPages: 0,
         hasPreviousPage: false,
         hasNextPage: false
       }

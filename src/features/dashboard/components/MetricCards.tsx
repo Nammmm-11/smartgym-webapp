@@ -13,10 +13,10 @@ interface MetricCardsProps {
 
 export const MetricCards: React.FC<MetricCardsProps> = ({ metrics }) => {
   const stats = [
-    { title: "HÓA ĐƠN SẮP HẾT HẠN", count: metrics?.expiringInvoicesTotal || 7, color: "text-[#38bdf8]" },
-    { title: "HÓA ĐƠN HẾT HẠN", count: metrics?.expiredInvoicesTotal || 7, color: "text-[#38bdf8]" },
-    { title: "HÓA ĐƠN MỚI", count: metrics?.newInvoicesTotal || 0, color: "text-[#ef4444]" },
-    { title: "HỘI VIÊN HÔM NAY", count: metrics?.membersTodayTotal || 4, color: "text-gym-neon" },
+    { title: "HÓA ĐƠN SẮP HẾT HẠN", count: metrics?.expiringInvoicesTotal ?? 0, color: "text-[#38bdf8]" },
+    { title: "HÓA ĐƠN HẾT HẠN", count: metrics?.expiredInvoicesTotal ?? 0, color: "text-[#38bdf8]" },
+    { title: "HÓA ĐƠN MỚI", count: metrics?.newInvoicesTotal ?? 0, color: "text-[#ef4444]" },
+    { title: "HỘI VIÊN HÔM NAY", count: metrics?.membersTodayTotal ?? 0, color: "text-gym-neon" },
   ];
 
   return (

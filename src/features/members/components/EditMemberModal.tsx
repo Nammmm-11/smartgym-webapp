@@ -53,7 +53,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
       // 2. Tải danh sách Nhân viên quầy thật từ SQL
       const staffData = await staffApi.getStaffs();
-      const receptionistList = staffData.filter((s: StaffMember) => !s.isDeleted);
+      const receptionistList = staffData.filter((s: StaffMember) => !s.isDeleted && s.role === 'RECEPTIONIST');
       setReceptionists(receptionistList);
 
       // 3. Khởi tạo dữ liệu từ member hiện tại
@@ -72,6 +72,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
       setPhoneNumber(currentMember.phoneNumber || '');
       setEmail(currentMember.email || '');
       setDob(currentMember.dateOfBirth || '');
+      if (currentMember.startDate) setStartDate(currentMember.startDate);
       setAddress((currentMember as any).address || '');
       setStatus(currentMember.status || 'ACTIVE');
 
@@ -80,7 +81,7 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
       else setGender('OTHER');
 
       // Khớp gói tập thật từ SQL
-      const matchedPkg = activePkgs.find((p: GymPackageDto) => p.name.toLowerCase() === (currentMember.packageName || '').toLowerCase());
+      const matchedPkg = activePkgs.find((p: GymPackageDto) => (p.name || '').toLowerCase() === (currentMember.packageName || '').toLowerCase());
       if (matchedPkg) {
         setSelectedPackageId(matchedPkg.id || '');
       } else if (activePkgs.length > 0) {
@@ -89,9 +90,21 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
       // Khớp nhân viên thật từ SQL
       if (currentMember.assignedStaffId) {
-        setSelectedStaffId(currentMember.assignedStaffId);
+        const matched = receptionistList.find(s => 
+          s.id.toLowerCase() === currentMember.assignedStaffId?.toLowerCase() ||
+          (s.userId && s.userId.toLowerCase() === currentMember.assignedStaffId?.toLowerCase())
+        );
+        if (matched) {
+          setSelectedStaffId(matched.id);
+        } else {
+          setSelectedStaffId(currentMember.assignedStaffId);
+        }
       } else {
-        const matchedStaff = receptionistList.find((s: StaffMember) => s.fullName.toLowerCase() === (currentMember.assignedStaff || '').toLowerCase());
+        const matchedStaff = receptionistList.find((s: StaffMember) => 
+          currentMember.assignedStaff && 
+          currentMember.assignedStaff !== 'Chưa phân công' &&
+          s.fullName.toLowerCase().trim() === currentMember.assignedStaff.toLowerCase().trim()
+        );
         if (matchedStaff) {
           setSelectedStaffId(matchedStaff.id);
         } else if (receptionistList.length > 0) {
@@ -142,8 +155,8 @@ export const EditMemberModal: React.FC<EditMemberModalProps> = ({
       dateOfBirth: dob,
       gender: gender === 'MALE' ? 'NAM' : gender === 'FEMALE' ? 'NỮ' : 'KHÁC',
       packageName: selectedPkg?.name || member.packageName,
-      assignedStaff: selectedStaff?.fullName || member.assignedStaff,
-      assignedStaffId: selectedStaffId || member.assignedStaffId,
+      assignedStaff: selectedStaff?.fullName || (selectedStaffId ? member.assignedStaff : 'Chưa phân công'),
+      assignedStaffId: selectedStaffId || undefined,
       expiryDate,
       status,
       ...(address ? { address } : {})

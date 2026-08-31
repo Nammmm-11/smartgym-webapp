@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {   
   FiPhone,   
   FiMail,   
@@ -63,32 +63,37 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
   const staffName = member.assignedStaff || member.staffName || 'Chưa phân công';
   const displayPackageName = member.packageName || 'Gói Tập 1 Tháng';
 
+  const formatDateOnly = (dateStr?: string) => {
+    if (!dateStr) return '';
+    return dateStr.split('T')[0];
+  };
+
   return (     
     <div className="bg-[#090909] border border-[#161616] hover:border-[#2a2a2a] rounded-2xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition-all duration-200 shadow-md">       
       {/* 1. INITIAL & FULL NAME */}       
-      <div className="flex items-center gap-3 min-w-[220px]">         
+      <div className="flex items-center gap-3 w-full xl:w-[280px] flex-shrink-0">         
         <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-sm flex-shrink-0 ${getInitialStyle(initial)}`}>           
           {initial}         
         </div>         
-        <div>           
+        <div className="min-w-0 flex-1">           
           <div className="flex items-center gap-2">             
-            <h4 className="text-xs font-black italic tracking-wide text-white uppercase m-0">{formattedFullName}</h4>             
-            <span className="text-[9px] font-mono font-bold text-gray-500 bg-[#141414] px-1.5 py-0.5 rounded border border-[#222]">               
+            <h4 className="text-xs font-black italic tracking-wide text-white uppercase m-0 truncate" title={formattedFullName}>{formattedFullName}</h4>             
+            <span className="text-[9px] font-mono font-bold text-gray-500 bg-[#141414] px-1.5 py-0.5 rounded border border-[#222] flex-shrink-0">               
               {member.memberCode}             
             </span>           
           </div>           
-          <p className="text-[9px] text-gray-500 font-mono tracking-widest uppercase m-0 mt-0.5">             
-            {member.gender} &nbsp;&nbsp; NS: {member.dateOfBirth}           
+          <p className="text-[9px] text-gray-500 font-mono tracking-widest uppercase m-0 mt-0.5 truncate">             
+            {member.gender} &nbsp;&nbsp; NS: {formatDateOnly(member.dateOfBirth)}           
           </p>         
         </div>       
       </div>       
 
       {/* 2. LIÊN HỆ */}       
-      <div className="min-w-[170px]">         
+      <div className="w-full xl:w-[170px] flex-shrink-0">         
         <span className="text-[8px] font-mono tracking-widest text-gray-500 uppercase block mb-1">LIÊN HỆ</span>         
         <div className="flex items-center gap-1.5 text-xs text-gray-300 font-mono">           
-          <FiPhone size={11} className="text-gray-500" />           
-          <span>{member.phoneNumber}</span>         
+          <FiPhone size={11} className="text-gray-500 flex-shrink-0" />           
+          <span className="truncate">{member.phoneNumber}</span>         
         </div>         
         <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-mono mt-0.5 truncate max-w-[160px]">           
           <FiMail size={11} className="text-gray-500 flex-shrink-0" />           
@@ -96,18 +101,18 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
         </div>       
       </div>       
 
-      {/* 3. GÓI PHÍ (Hiển thị gói phí mới nhất) */}       
-      <div className="min-w-[160px]">         
+      {/* 3. GÓI PHÍ */}       
+      <div className="w-full xl:w-[160px] flex-shrink-0">         
         <span className="text-[8px] font-mono tracking-widest text-gray-500 uppercase block mb-1">GÓI PHÍ</span>         
-        <div className="flex items-center gap-1 text-[11px] font-black text-gym-neon uppercase tracking-wider">           
-          <FiTag size={11} />           
-          <span>{displayPackageName}</span>         
+        <div className="flex items-center gap-1 text-[11px] font-black text-gym-neon uppercase tracking-wider truncate">           
+          <FiTag size={11} className="flex-shrink-0" />           
+          <span className="truncate">{displayPackageName}</span>         
         </div>         
-        <span className="text-[9px] text-gray-500 font-mono uppercase block mt-0.5">{member.packageDiscount || 'Không giảm giá'}</span>       
+        <span className="text-[9px] text-gray-500 font-mono uppercase block mt-0.5 truncate">{member.packageDiscount || 'Không giảm giá'}</span>       
       </div>       
 
-      {/* 4. NV PHỤ TRÁCH (Hiển thị tên nhân viên tạo/phụ trách) */}       
-      <div className="min-w-[180px]">         
+      {/* 4. NV PHỤ TRÁCH */}       
+      <div className="w-full xl:w-[190px] flex-shrink-0">         
         <span className="text-[8px] font-mono tracking-widest text-gray-500 uppercase block mb-1">NV PHỤ TRÁCH</span>         
         <div className="inline-flex items-center justify-between w-full bg-[#121212] border border-[#1f1f1f] px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-gray-200">           
           <div className="flex items-center gap-1.5 truncate">
@@ -119,21 +124,21 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
       </div>       
 
       {/* 5. HẠN & TRẠNG THÁI */}       
-      <div className="min-w-[130px]">         
+      <div className="w-full xl:w-[170px] flex-shrink-0">         
         <span className="text-[8px] font-mono tracking-widest text-gray-500 uppercase block mb-1">HẠN DÙNG</span>         
         <div className="flex items-center gap-2">           
-          <div className="flex items-center gap-1 text-[10px] font-mono text-gray-300">             
+          <div className="flex items-center gap-1 text-[10px] font-mono text-gray-300 flex-shrink-0">             
             <FiCalendar size={11} className="text-gray-500" />             
-            <span>{member.expiryDate}</span>           
+            <span>{formatDateOnly(member.expiryDate)}</span>           
           </div>           
-          <span className={`text-[8px] font-black px-2 py-0.5 rounded tracking-wider uppercase border ${isExpired ? 'bg-red-950/40 text-red-400 border-red-900/50' : 'bg-green-950/40 text-[#22c55e] border-green-900/50'}`}>             
+          <span className={`text-[8px] font-black px-2 py-0.5 rounded tracking-wider uppercase border flex-shrink-0 ${isExpired ? 'bg-red-950/40 text-red-400 border-red-900/50' : 'bg-green-950/40 text-[#22c55e] border-green-900/50'}`}>             
             {isExpired ? 'HẾT HẠN' : 'HOẠT ĐỘNG'}           
           </span>         
         </div>       
       </div>       
 
       {/* 6. ACTIONS */}       
-      <div className="flex items-center gap-2 self-end xl:self-auto flex-shrink-0">         
+      <div className="flex items-center gap-2 self-end xl:self-auto xl:ml-auto flex-shrink-0">         
         {member.isDeleted ? (           
           <button             
             type="button"             
@@ -143,11 +148,19 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
           </button>         
         ) : (           
           <>             
-            {/* Nút CHECK / CHECKED thay đổi linh hoạt theo state */}             
+            {/* Nút Check / Checked thay đổi linh hoạt theo state */}             
             <button               
               type="button"               
               onClick={handleCheckClick}               
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border ${                 isChecked                   ? 'bg-gym-neon text-black border-gym-neon shadow-[0_0_12px_rgba(204,255,0,0.3)] font-black'                   : 'bg-[#121212] border-[#1f1f1f] hover:border-gym-neon text-white'               }`}             >               <FiCheckCircle size={12} className={isChecked ? 'text-black' : 'text-gray-400'} />               {isChecked ? 'CHECKED' : 'CHECK'}             </button>             
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border ${
+                isChecked
+                  ? 'bg-[#22c55e] text-black border-[#22c55e] shadow-[0_0_12px_rgba(34,197,94,0.4)] font-black'
+                  : 'bg-[#121212] border-[#1f1f1f] hover:border-[#22c55e] text-white'
+              }`}
+            >
+              <FiCheckCircle size={12} className={isChecked ? 'text-black' : 'text-gray-400'} />
+              {isChecked ? 'Checked' : 'Check'}
+            </button>             
             
             <button               
               type="button"               

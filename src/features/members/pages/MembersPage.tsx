@@ -39,12 +39,24 @@ export const MembersPage: React.FC = () => {
     loadMembers();
   }, []);
 
-  const metrics = memberApi.calculateMetrics(members);
-  const trashCount = members.filter((m) => m.isDeleted).length;
-  const deletedMembersList = members.filter((m) => m.isDeleted);
-
   // Lấy ngày hiện tại YYYY-MM-DD theo giờ thực tế của máy chủ/người dùng
   const todayStr = new Date().toISOString().split('T')[0];
+
+  const [checkedMemberIds, setCheckedMemberIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(`smartgym_checked_members_${todayStr}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const metrics = {
+    ...memberApi.calculateMetrics(members),
+    checkInToday: checkedMemberIds.filter(id => members.some(m => m.id === id && !m.isDeleted)).length
+  };
+  const trashCount = members.filter((m) => m.isDeleted).length;
+  const deletedMembersList = members.filter((m) => m.isDeleted);
 
   const filteredMembers = members.filter((member) => {
     if (member.isDeleted) return false;
@@ -109,32 +121,49 @@ export const MembersPage: React.FC = () => {
     }
   };
 
-  const handleCheckIn = async (id: string) => {
+  const handleCheckIn = (id: string) => {
     const target = members.find((m) => m.id === id);
     if (!target) return;
     if (target.status === 'EXPIRED') {
       alert('Hội viên đã hết hạn, không thể check-in!');
       return;
     }
-    const currentTime = new Date().toLocaleTimeString('en-GB');
-    const currentDate = new Date().toLocaleDateString('en-GB');
     
-    // Lưu ngày check-in thực tế dưới dạng YYYY-MM-DD
-    const newCheckState = !(target.isCheckedToday && target.lastCheckInDate === todayStr);
+    const isCurrentlyChecked = checkedMemberIds.includes(id);
+    const nextCheckedList = isCurrentlyChecked
+      ? checkedMemberIds.filter((mId) => mId !== id)
+      : [...checkedMemberIds, id];
 
+    setCheckedMemberIds(nextCheckedList);
     try {
-      await memberApi.updateMember(id, {
-        ...target,
-        isCheckedToday: newCheckState,
-        lastCheckInDate: todayStr,
-        lastCheckInTime: `${currentTime} ${currentDate}`
-      });
-      await loadMembers();
-      if (newCheckState) {
-        alert(`CHECK-IN THÀNH CÔNG CHO ${target.fullName}`);
+      localStorage.setItem(`smartgym_checked_members_${todayStr}`, JSON.stringify(nextCheckedList));
+
+      const storedLogs = localStorage.getItem(`smartgym_checkin_logs_${todayStr}`);
+      let logs = storedLogs ? JSON.parse(storedLogs) : [];
+      if (!isCurrentlyChecked) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const dateStr = now.toLocaleDateString('vi-VN');
+        const newLog = {
+          memberId: id,
+          name: (target.lastName && target.firstName) ? `${target.lastName} ${target.firstName}`.trim() : target.fullName,
+          phone: target.phoneNumber,
+          packageName: target.packageName || 'Gói tập',
+          time: timeStr,
+          dateTime: `${timeStr} ${dateStr}`,
+          startDate: target.startDate || '',
+          endDate: target.expiryDate || '',
+          status: target.status || 'ACTIVE',
+          timestamp: Date.now()
+        };
+        logs = logs.filter((l: any) => l.memberId !== id);
+        logs.push(newLog);
+      } else {
+        logs = logs.filter((l: any) => l.memberId !== id);
       }
-    } catch (error) {
-      console.error("Lỗi khi check-in:", error);
+      localStorage.setItem(`smartgym_checkin_logs_${todayStr}`, JSON.stringify(logs));
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -188,12 +217,13 @@ export const MembersPage: React.FC = () => {
             filteredMembers.map((member) => {
               const assignedStaffObj = staffs.find(s => 
                 s.id === member.assignedStaffId || 
-                (s.id && member.assignedStaffId && s.id.toLowerCase() === member.assignedStaffId.toLowerCase())
+                (s.id && member.assignedStaffId && s.id.toLowerCase() === member.assignedStaffId.toLowerCase()) ||
+                (s.userId && member.assignedStaffId && s.userId.toLowerCase() === member.assignedStaffId.toLowerCase())
               );
               const staffName = assignedStaffObj ? assignedStaffObj.fullName : (member.assignedStaff && member.assignedStaff !== 'Chưa phân công' ? member.assignedStaff : 'Chưa phân công');
               
-              // Kiểm tra xem đã Check-in trong ngày hôm nay hay chưa (dựa theo ngày thực)
-              const isCheckedTodayReal = Boolean(member.isCheckedToday && member.lastCheckInDate === todayStr);
+              // Kiểm tra xem đã Check-in trong ngày hôm nay hay chưa
+              const isCheckedTodayReal = checkedMemberIds.includes(member.id);
 
               return (
                 <MemberCardRow

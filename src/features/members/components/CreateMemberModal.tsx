@@ -62,7 +62,7 @@ export const CreateMemberModal: React.FC<CreateMemberModalProps> = ({
       }
 
       const staffData = await staffApi.getStaffs();
-      const receptionistList = staffData.filter((s: StaffMember) => !s.isDeleted);
+      const receptionistList = staffData.filter((s: StaffMember) => !s.isDeleted && s.role === 'RECEPTIONIST');
       setReceptionists(receptionistList);
       if (receptionistList.length > 0) {
         setSelectedStaffId(receptionistList[0].id);
@@ -90,39 +90,6 @@ export const CreateMemberModal: React.FC<CreateMemberModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const fullName = `${lastName.trim()} ${firstName.trim()}`.trim();
-
-    // Tự động tích lũy doanh thu cho nhân viên quầy phụ trách
-    if (selectedStaffId) {
-      try {
-        const salesKey = `smartgym_staff_sales_${selectedStaffId}`;
-        const existingSales = JSON.parse(localStorage.getItem(salesKey) || '[]');
-        const newSale = {
-          id: String(Date.now()),
-          memberFullName: fullName,
-          memberPhone: phoneNumber,
-          packageName: selectedPkg?.name || 'Gói tập',
-          amount: finalAmount,
-          date: new Date().toLocaleDateString('vi-VN')
-        };
-        existingSales.unshift(newSale);
-        localStorage.setItem(salesKey, JSON.stringify(existingSales));
-
-        staffApi.getStaffs().then((staffs) => {
-          const targetStaff = staffs.find(s => s.id === selectedStaffId);
-          if (targetStaff) {
-            const currentRevenue = targetStaff.ptRevenue || 0;
-            staffApi.updateStaff(selectedStaffId, {
-              ...targetStaff,
-              ptRevenue: currentRevenue + finalAmount
-            });
-          }
-        });
-      } catch (err) {
-        console.error("Lỗi tích lũy doanh thu cho nhân viên:", err);
-      }
-    }
 
     const finalLastName = lastName.trim() || 'Hội viên';
     const finalFirstName = firstName.trim() || 'Mới';
