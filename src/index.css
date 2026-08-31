@@ -8,3 +8,31 @@ body {
   color: #ffffff;
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+/* Custom Sleek Cyberpunk Dark Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #22222d;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ccff00;
+}
+
+/* Ẩn hoàn toàn thanh cuộn nhưng vẫn cuộn chuột mượt mà */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -5,7 +5,9 @@ import { MemberCardRow } from '../components/MemberCardRow';
 import { CreateMemberModal } from '../components/CreateMemberModal';
 import { EditMemberModal } from '../components/EditMemberModal';
 import { TrashModal } from '../components/TrashModal';
+import { MemberDetailModal } from '../components/MemberDetailModal';
 import { FooterStatusBar } from '../components/FooterStatusBar';
+import { ToastNotification } from '../../../components/common/ToastNotification';
 import { memberApi } from '../api/member.api';
 import { staffApi } from '../../staff/api/staff.api';
 import type { Member, MemberFilterType } from '../types/member.types';
@@ -14,13 +16,23 @@ import { FiUsers } from 'react-icons/fi';
 
 export const MembersPage: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
-  const [staffs, setStaffs] = useState<StaffMember[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<MemberFilterType>('ALL');
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [interactingMember, setInteractingMember] = useState<Member | null>(null);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+
+  // Toast Notification state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(msg);
+    setToastType(type);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const loadMembers = async () => {
     try {
@@ -28,8 +40,26 @@ export const MembersPage: React.FC = () => {
         memberApi.getMembers(),
         staffApi.getStaffs()
       ]);
-      setMembers(memberData);
-      setStaffs(staffData);
+
+      // Tạo bảng ánh xạ tra cứu tên nhân viên theo StaffId và UserId
+      const staffMap = new Map<string, string>();
+      staffData.forEach((s: StaffMember) => {
+        if (s.id) staffMap.set(String(s.id).toLowerCase(), s.fullName);
+        if (s.userId) staffMap.set(String(s.userId).toLowerCase(), s.fullName);
+      });
+
+      const enrichedMembers = memberData.map((m: any) => {
+        let staffName = m.assignedStaff || m.staffName;
+        if (!staffName && m.assignedStaffId) {
+          staffName = staffMap.get(String(m.assignedStaffId).toLowerCase());
+        }
+        return {
+          ...m,
+          assignedStaff: staffName || m.assignedStaff || m.staffName || 'Chưa phân công'
+        };
+      });
+
+      setMembers(enrichedMembers);
     } catch (error) {
       console.error("Lỗi khi tải danh sách hội viên:", error);
     }
@@ -77,26 +107,32 @@ export const MembersPage: React.FC = () => {
     try {
       const res = await memberApi.createMember(newMemberData);
       if (res && res.isSuccess === false) {
-        alert(`Lỗi tạo hội viên: ${res.message || 'Mã hoặc thông tin hội viên không hợp lệ'}`);
+        showToast(`Lỗi: ${res.message || 'Không thể tạo hội viên'}`, 'error');
         return;
       }
       await loadMembers();
       setIsCreateOpen(false);
+      showToast('✓ Đã tạo thành công hội viên!');
     } catch (error: any) {
       console.error("Lỗi thêm hội viên:", error);
       const serverMsg = error.response?.data?.message || error.response?.data || error.message;
-      alert(`Không thể thêm hội viên. Chi tiết từ Server: ${typeof serverMsg === 'object' ? JSON.stringify(serverMsg) : serverMsg}`);
+      showToast(`Không thể thêm hội viên: ${typeof serverMsg === 'object' ? JSON.stringify(serverMsg) : serverMsg}`, 'error');
     }
   };
 
-  const handleUpdateMember = async (updatedMember: Member) => {
+  const handleUpdateMember = async (updatedMember: Member, isRenewal: boolean = false) => {
     try {
       await memberApi.updateMember(updatedMember.id, updatedMember);
       await loadMembers();
       setEditingMember(null);
+      if (isRenewal) {
+        showToast('✓ Đã gia hạn gói tập thành công!');
+      } else {
+        showToast('✓ Đã cập nhật thông tin hội viên!');
+      }
     } catch (error) {
       console.error("Lỗi cập nhật hội viên:", error);
-      alert("Không thể cập nhật hội viên. Vui lòng thử lại!");
+      showToast("Không thể cập nhật hội viên. Vui lòng thử lại!", "error");
     }
   };
 
@@ -105,9 +141,10 @@ export const MembersPage: React.FC = () => {
       try {
         await memberApi.deleteMember(id);
         await loadMembers();
+        showToast('✓ Đã chuyển hội viên vào thùng rác!');
       } catch (error) {
         console.error("Lỗi xóa hội viên:", error);
-        alert("Không thể xóa hội viên.");
+        showToast("Không thể xóa hội viên.", "error");
       }
     }
   };
@@ -116,6 +153,7 @@ export const MembersPage: React.FC = () => {
     try {
       await memberApi.restoreMember(id);
       await loadMembers();
+      showToast('✓ Đã khôi phục hội viên thành công!');
     } catch (error) {
       console.error("Lỗi khôi phục hội viên:", error);
     }
@@ -125,7 +163,7 @@ export const MembersPage: React.FC = () => {
     const target = members.find((m) => m.id === id);
     if (!target) return;
     if (target.status === 'EXPIRED') {
-      alert('Hội viên đã hết hạn, không thể check-in!');
+      showToast('Hội viên đã hết hạn, không thể check-in!', 'error');
       return;
     }
     
@@ -146,94 +184,86 @@ export const MembersPage: React.FC = () => {
         const dateStr = now.toLocaleDateString('vi-VN');
         const newLog = {
           memberId: id,
-          name: (target.lastName && target.firstName) ? `${target.lastName} ${target.firstName}`.trim() : target.fullName,
-          phone: target.phoneNumber,
-          packageName: target.packageName || 'Gói tập',
+          memberName: target.fullName,
+          memberCode: target.memberCode,
+          packageName: target.packageName,
           time: timeStr,
           dateTime: `${timeStr} ${dateStr}`,
-          startDate: target.startDate || '',
-          endDate: target.expiryDate || '',
-          status: target.status || 'ACTIVE',
-          timestamp: Date.now()
+          status: 'SUCCESS'
         };
-        logs = logs.filter((l: any) => l.memberId !== id);
-        logs.push(newLog);
+        logs.unshift(newLog);
+        localStorage.setItem(`smartgym_checkin_logs_${todayStr}`, JSON.stringify(logs));
+        showToast(`✓ Check-in thành công: ${target.fullName}`);
       } else {
         logs = logs.filter((l: any) => l.memberId !== id);
+        localStorage.setItem(`smartgym_checkin_logs_${todayStr}`, JSON.stringify(logs));
+        showToast(`✓ Đã hủy check-in: ${target.fullName}`);
       }
-      localStorage.setItem(`smartgym_checkin_logs_${todayStr}`, JSON.stringify(logs));
     } catch (e) {
       console.error(e);
     }
   };
 
+  const handleEditMember = (member: Member) => {
+    setEditingMember(member);
+  };
+
   const handleInteract = (member: Member) => {
-    alert(`Tương tác với hội viên: ${member.fullName} (${member.phoneNumber})`);
+    setInteractingMember(member);
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#050505] text-white">
-      {/* TOP HEADER */}
+      {/* Toast Notification */}
+      <ToastNotification message={toastMessage} type={toastType} />
+
+      {/* Header Bar */}
       <div className="relative z-30 px-8 py-5 border-b border-[#141414] bg-[#070707] flex justify-between items-center flex-shrink-0">
-        <div className="relative z-10">
-          <span className="text-[10px] text-gray-500 font-mono tracking-[0.25em] uppercase">
-            FIT.GYM // SYSTEM_V4
-          </span>
-          <h1 className="text-2xl lg:text-3xl font-black italic tracking-wide uppercase m-0 mt-1 text-white flex items-center gap-2">
-            DANH SÁCH HỘI VIÊN
+        <div>
+          <h1 className="text-xl font-black italic tracking-wider uppercase text-white m-0 flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-gym-neon animate-pulse shadow-[0_0_10px_#ccff00]"></span>
+            QUẢN LÝ HỘI VIÊN
           </h1>
+          <p className="text-[11px] font-mono text-gray-500 uppercase tracking-widest mt-1">
+            DANH SÁCH & TRẠNG THÁI HỘI VIÊN TOÀN HỆ THỐNG
+          </p>
         </div>
       </div>
 
-      {/* MAIN SCROLLABLE CONTENT */}
-      <div className="p-8 flex flex-col gap-5 flex-grow overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-6">
+        {/* Metric Cards */}
         <MemberMetricCards metrics={metrics} />
+
+        {/* Filter Bar */}
         <MemberFilterBar
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          activeFilter={activeFilter}
-          onFilterChange={(filter) => {
-            if (filter === 'TRASH') {
-              setIsTrashOpen(true);
-            } else {
-              setActiveFilter(filter);
-            }
-          }}
           metrics={metrics}
           trashCount={trashCount}
           onAddClick={() => setIsCreateOpen(true)}
         />
-        <div className="flex flex-col gap-3 pb-4">
+
+        {/* Danh sách Hội viên */}
+        <div className="flex flex-col gap-3">
           {filteredMembers.length === 0 ? (
-            <div className="bg-[#080808] border border-dashed border-[#1c1c1c] rounded-2xl p-12 text-center flex flex-col items-center justify-center">
-              <div className="w-12 h-12 rounded-2xl bg-[#121212] flex items-center justify-center text-gray-600 mb-3">
-                <FiUsers size={24} />
-              </div>
-              <p className="text-xs font-mono text-gray-500 tracking-widest uppercase m-0">
-                KHÔNG TÌM THẤY HỘI VIÊN
+            <div className="bg-[#0b0b0e] border border-[#181820] rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3 text-gray-500">
+              <FiUsers size={36} className="opacity-40 text-gym-neon" />
+              <p className="text-sm font-mono uppercase tracking-wider text-gray-400 font-bold m-0">
+                KHÔNG TÌM THẤY HỘI VIÊN NÀO PHÙ HỢP
               </p>
             </div>
           ) : (
             filteredMembers.map((member) => {
-              const assignedStaffObj = staffs.find(s => 
-                s.id === member.assignedStaffId || 
-                (s.id && member.assignedStaffId && s.id.toLowerCase() === member.assignedStaffId.toLowerCase()) ||
-                (s.userId && member.assignedStaffId && s.userId.toLowerCase() === member.assignedStaffId.toLowerCase())
-              );
-              const staffName = assignedStaffObj ? assignedStaffObj.fullName : (member.assignedStaff && member.assignedStaff !== 'Chưa phân công' ? member.assignedStaff : 'Chưa phân công');
-              
-              // Kiểm tra xem đã Check-in trong ngày hôm nay hay chưa
-              const isCheckedTodayReal = checkedMemberIds.includes(member.id);
+              const isChecked = checkedMemberIds.includes(member.id);
+              const memberWithChecked = { ...member, isCheckedToday: isChecked };
 
               return (
                 <MemberCardRow
                   key={member.id}
-                  member={{
-                    ...member,
-                    assignedStaff: staffName,
-                    isCheckedToday: isCheckedTodayReal
-                  }}
-                  onEdit={(m) => setEditingMember(m)}
+                  member={memberWithChecked}
+                  onEdit={handleEditMember}
                   onDelete={handleDeleteMember}
                   onRestore={handleRestoreMember}
                   onCheckIn={handleCheckIn}
@@ -256,7 +286,7 @@ export const MembersPage: React.FC = () => {
           isOpen={!!editingMember}
           member={editingMember}
           onClose={() => setEditingMember(null)}
-          onSubmit={handleUpdateMember}
+          onSubmit={(updated) => handleUpdateMember(updated, false)}
         />
       )}
       <TrashModal
@@ -264,6 +294,12 @@ export const MembersPage: React.FC = () => {
         onClose={() => setIsTrashOpen(false)}
         deletedMembers={deletedMembersList}
         onRestore={handleRestoreMember}
+      />
+      <MemberDetailModal
+        isOpen={!!interactingMember}
+        member={interactingMember}
+        onClose={() => setInteractingMember(null)}
+        onUpdateMember={(updated) => handleUpdateMember(updated, true)}
       />
     </div>
   );

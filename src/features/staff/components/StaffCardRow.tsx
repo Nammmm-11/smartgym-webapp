@@ -52,7 +52,7 @@ export const StaffCardRow: React.FC<StaffCardRowProps> = ({
             LƯƠNG / DOANH THU <FiEye size={11} className="opacity-0 group-hover/salary:opacity-100 transition-opacity" />
           </p>
           <p className="text-sm font-black text-gym-neon m-0 mt-0.5">
-            {(staff.role === 'TRAINER' ? (staff.ptRevenue || 0) : staff.salary)?.toLocaleString('vi-VN')} đ
+            {((staff.salary || 0) + (staff.ptRevenue || 0) || 0).toLocaleString('vi-VN')} đ
           </p>
         </div>
 

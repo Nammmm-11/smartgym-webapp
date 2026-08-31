@@ -11,7 +11,6 @@ import {
   FiRotateCcw, 
   FiUserCheck,
 } from 'react-icons/fi';
-import { IoIosArrowDown } from 'react-icons/io';
 import type { Member } from '../types/member.types';
 
 interface MemberCardRowProps {   
@@ -59,8 +58,6 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
     }   
   };   
 
-  // Lấy tên nhân viên phụ trách và gói phí hiện tại
-  const staffName = member.assignedStaff || member.staffName || 'Chưa phân công';
   const displayPackageName = member.packageName || 'Gói Tập 1 Tháng';
 
   const formatDateOnly = (dateStr?: string) => {
@@ -69,7 +66,11 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
   };
 
   return (     
-    <div className="bg-[#090909] border border-[#161616] hover:border-[#2a2a2a] rounded-2xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition-all duration-200 shadow-md">       
+    <div 
+      onClick={() => onInteract(member)}
+      className="bg-[#090909] border border-[#161616] hover:border-gym-neon/40 hover:bg-[#0c0c10] rounded-2xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition-all duration-200 shadow-md cursor-pointer group"
+      title="Bấm vào hàng để mở chi tiết & tương tác hội viên"
+    >       
       {/* 1. INITIAL & FULL NAME */}       
       <div className="flex items-center gap-3 w-full xl:w-[280px] flex-shrink-0">         
         <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-sm flex-shrink-0 ${getInitialStyle(initial)}`}>           
@@ -77,7 +78,7 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
         </div>         
         <div className="min-w-0 flex-1">           
           <div className="flex items-center gap-2">             
-            <h4 className="text-xs font-black italic tracking-wide text-white uppercase m-0 truncate" title={formattedFullName}>{formattedFullName}</h4>             
+            <h4 className="text-xs font-black italic tracking-wide text-white group-hover:text-gym-neon uppercase m-0 truncate transition-colors" title={formattedFullName}>{formattedFullName}</h4>             
             <span className="text-[9px] font-mono font-bold text-gray-500 bg-[#141414] px-1.5 py-0.5 rounded border border-[#222] flex-shrink-0">               
               {member.memberCode}             
             </span>           
@@ -108,33 +109,33 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
           <FiTag size={11} className="flex-shrink-0" />           
           <span className="truncate">{displayPackageName}</span>         
         </div>         
-        <span className="text-[9px] text-gray-500 font-mono uppercase block mt-0.5 truncate">{member.packageDiscount || 'Không giảm giá'}</span>       
+        <span className="text-[9px] text-gray-500 font-mono">
+          {member.packageDiscount || '300.000 đ'}
+        </span>       
       </div>       
 
       {/* 4. NV PHỤ TRÁCH */}       
       <div className="w-full xl:w-[190px] flex-shrink-0">         
         <span className="text-[8px] font-mono tracking-widest text-gray-500 uppercase block mb-1">NV PHỤ TRÁCH</span>         
-        <div className="inline-flex items-center justify-between w-full bg-[#121212] border border-[#1f1f1f] px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-gray-200">           
-          <div className="flex items-center gap-1.5 truncate">
-            <FiUserCheck size={12} className="text-gym-neon flex-shrink-0" />
-            <span className="truncate">{staffName}</span>           
-          </div>
-          <IoIosArrowDown size={11} className="text-gray-500 flex-shrink-0 ml-1" />         
-        </div>       
+        <div className="flex items-center gap-1.5 text-xs font-mono text-white">           
+          <FiUserCheck size={12} className="text-gym-neon flex-shrink-0" />           
+          <span className="truncate font-bold uppercase">{member.assignedStaff || member.staffName || 'Chưa phân công'}</span>         
+        </div>         
+        <span className="text-[9px] text-gray-500 font-mono">Lễ tân phụ trách</span>       
       </div>       
 
-      {/* 5. HẠN & TRẠNG THÁI */}       
+      {/* 5. HẠN DÙNG */}       
       <div className="w-full xl:w-[170px] flex-shrink-0">         
         <span className="text-[8px] font-mono tracking-widest text-gray-500 uppercase block mb-1">HẠN DÙNG</span>         
-        <div className="flex items-center gap-2">           
-          <div className="flex items-center gap-1 text-[10px] font-mono text-gray-300 flex-shrink-0">             
-            <FiCalendar size={11} className="text-gray-500" />             
-            <span>{formatDateOnly(member.expiryDate)}</span>           
-          </div>           
-          <span className={`text-[8px] font-black px-2 py-0.5 rounded tracking-wider uppercase border flex-shrink-0 ${isExpired ? 'bg-red-950/40 text-red-400 border-red-900/50' : 'bg-green-950/40 text-[#22c55e] border-green-900/50'}`}>             
-            {isExpired ? 'HẾT HẠN' : 'HOẠT ĐỘNG'}           
+        <div className="flex items-center gap-1.5 text-xs font-mono">           
+          <FiCalendar size={12} className={isExpired ? 'text-red-500' : 'text-green-500'} />           
+          <span className={isExpired ? 'text-red-400 font-black' : 'text-gray-300 font-bold'}>             
+            {formatDateOnly(member.expiryDate) || '30/12/2026'}           
           </span>         
-        </div>       
+        </div>         
+        <span className={`text-[9px] font-mono font-bold uppercase ${isExpired ? 'text-red-500' : 'text-[#22c55e]'}`}>           
+          {isExpired ? 'ĐÃ HẾT HẠN' : 'CÒN HẠN'}         
+        </span>       
       </div>       
 
       {/* 6. ACTIONS */}       
@@ -142,7 +143,10 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
         {member.isDeleted ? (           
           <button             
             type="button"             
-            onClick={() => onRestore && onRestore(member.id)}             
+            onClick={(e) => {
+              e.stopPropagation();
+              onRestore && onRestore(member.id);
+            }}             
             className="flex items-center gap-1 bg-[#15232d] border border-[#223d52] hover:border-[#38bdf8] text-[#38bdf8] text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors cursor-pointer"           >             
             <FiRotateCcw size={12} /> KHÔI PHỤC           
           </button>         
@@ -151,7 +155,10 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
             {/* Nút Check / Checked thay đổi linh hoạt theo state */}             
             <button               
               type="button"               
-              onClick={handleCheckClick}               
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCheckClick();
+              }}               
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border ${
                 isChecked
                   ? 'bg-[#22c55e] text-black border-[#22c55e] shadow-[0_0_12px_rgba(34,197,94,0.4)] font-black'
@@ -164,21 +171,30 @@ export const MemberCardRow: React.FC<MemberCardRowProps> = ({
             
             <button               
               type="button"               
-              onClick={() => onInteract(member)}               
+              onClick={(e) => {
+                e.stopPropagation();
+                onInteract(member);
+              }}               
               className="flex items-center gap-1 bg-[#121212] border border-gym-neon/40 hover:bg-gym-neon/10 text-gym-neon text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors cursor-pointer"           >             
               <FiMessageSquare size={12} /> TƯƠNG TÁC           
             </button>             
 
             <button               
               type="button"               
-              onClick={() => onEdit(member)}               
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(member);
+              }}               
               className="p-2 rounded-lg bg-[#121212] border border-[#1f1f1f] hover:border-gray-500 text-gray-300 hover:text-white transition-colors cursor-pointer"           >             
               <FiEdit2 size={13} />           
             </button>             
 
             <button               
               type="button"               
-              onClick={() => onDelete(member.id)}               
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(member.id);
+              }}               
               className="p-2 rounded-lg bg-[#170808] border border-[#381515] hover:border-red-500 text-red-400 transition-colors cursor-pointer"           >             
               <FiTrash2 size={13} />           
             </button>           
